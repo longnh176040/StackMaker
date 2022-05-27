@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/GamePlay/_Scenes/MapGenerator.unity
+    guid: fe32bac48c7c27e44a6e3bfbac0df038
   m_configObjects: {}
