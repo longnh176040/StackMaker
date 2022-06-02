@@ -30,6 +30,8 @@ public class MapEditor: MonoBehaviour
 			new Color32(255, 0, 0, 200),		// Win Block
     };
 
+    private Vector2 startPos, winPos;
+
     #endregion
 
     #region Create New Map
@@ -55,9 +57,23 @@ public class MapEditor: MonoBehaviour
     [CustomValueDrawer("CustomMapSizeRange")]
     public int CustomMapSize;
 
-    [TabGroup("Map Editor", "Create New Map")]
+    //[TabGroup("Map Editor", "Create New Map")]
+    [HorizontalGroup("Map Editor/Create New Map/Pickable")]
+    [VerticalGroup("Map Editor/Create New Map/Pickable/Left")]
     [ShowInInspector] [ReadOnly] [Space(10)]
     private static Color CurrentBlock = NumberColors[0];
+    [VerticalGroup("Map Editor/Create New Map/Pickable/Right")]
+    [Button] [PropertySpace(10)]
+    public void Restart()
+    {
+        for (int x = 0; x < currentMapSize; x++)
+        {
+            for (int y = 0; y < currentMapSize; y++)
+            {
+                editedTiles[x, y] = BlockType.Empty;
+            }
+        }
+    }
 
     [ButtonGroup("Map Editor/Create New Map/BlockColor")]
     [GUIColor(0.925f, 0.83f, 0.83f)]
@@ -113,7 +129,6 @@ public class MapEditor: MonoBehaviour
 
     //============================================
 
-
     [ButtonGroup("Map Editor/Create New Map/FunctionButton")]
     public void LoadLevel()
     {
@@ -154,13 +169,13 @@ public class MapEditor: MonoBehaviour
         {
             for (int y = 0; y < currentMapSize; y++)
             {
-                if (editedTiles[y, x] == BlockType.Empty)
+                if (editedTiles[x, y] == BlockType.Empty)
 				{
 					continue;
 				}
 				else
 				{
-					CreateBlock(editedTiles[y, x], new Vector3(y, 0, x), levelContainer.transform);
+					CreateBlock(editedTiles[x, y], new Vector3(x, 0, y), levelContainer.transform);
 				}
 			}
         }
@@ -201,7 +216,23 @@ public class MapEditor: MonoBehaviour
                 break;
         }
 
-        Instantiate(objToSpawn, position, Quaternion.identity, parent);
+        GameObject spawnedObj = Instantiate(objToSpawn, position, Quaternion.identity, parent);
+        if (type == BlockType.Win)
+        {
+            Vector2 adjacentBlock = FindSurroundedBlock();
+            if (adjacentBlock.x == winPos.x - 1)
+            {
+                spawnedObj.transform.Rotate(Vector3.up * 90f);
+            }
+            else if (adjacentBlock.x == winPos.x + 1)
+            {
+                spawnedObj.transform.Rotate(Vector3.up * -90f);
+            }
+            else if (adjacentBlock.y == winPos.y + 1)
+            {
+                spawnedObj.transform.Rotate(Vector3.up * -180f);
+            }
+        }
     }
     
     private void InitMap(int value)
@@ -215,6 +246,7 @@ public class MapEditor: MonoBehaviour
                 editedTiles[x, y] = BlockType.Empty;
             }
         }
+        startPos = winPos = Vector2.one * -1;
     }
 
     private void ShowMapEditor()
@@ -269,10 +301,36 @@ public class MapEditor: MonoBehaviour
 
                 if ((Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseDrag) && Event.current.button == 0)
                 {
-                    if (editedTiles[x,y] != currentBlockType)
+                    if (editedTiles[x, y] != currentBlockType)
 					{
                         editedTiles[x, y] = currentBlockType;
-					}
+
+                        if (currentBlockType == BlockType.Start)
+                        {
+                            if (startPos == Vector2.one * -1)
+                            {
+                                startPos.x = x; startPos.y = y;
+                            }
+                            else
+                            {
+                                editedTiles[(int)startPos.x, (int)startPos.y] = BlockType.Empty;
+                                startPos.x = x; startPos.y = y;
+                            }
+                        }
+
+                        if (currentBlockType == BlockType.Win)
+                        {
+                            if (winPos == Vector2.one * -1)
+                            {
+                                winPos.x = x; winPos.y = y;
+                            }
+                            else
+                            {
+                                editedTiles[(int) winPos.x, (int) winPos.y] = BlockType.Empty;
+                                startPos.x = x; startPos.y = y;
+                            }
+                        }
+                    }
                     Event.current.Use();
                 }
             }
@@ -308,15 +366,74 @@ public class MapEditor: MonoBehaviour
         return size;
 	}
 
+    #endregion
+
+    #region Edit Map
+    [TabGroup("Map Editor", "Edit An Existing Map")]
+    [ShowInInspector]
+    [AssetsOnly]
+    [InlineEditor(InlineEditorModes.GUIOnly)] [InlineButton("StartEditMap")]
+    private Level levelToEdit;
+
+    [TabGroup("Map Editor", "Edit An Existing Map")]
+    [Button]
+    public void ReloadLevel()
+    {
+
+    }
+
+    private void StartEditMap()
+    {
+        if (levelToEdit == null)
+        {
+            Debug.LogError("Choose a level to edit !!!");
+            return;
+        }
+        else
+        {
+            editedTiles = levelToEdit.Map;
+            startPos = FindBlockPosition(BlockType.Start);
+            winPos = FindBlockPosition(BlockType.Win);
+        }
+    }
+
+    #endregion
+
+    #region Shared Stuff
+    [ButtonGroup("SameBtnGroup")]
+    public void SaveLevel()
+    {
+        if (levelContainer == null)
+        {
+            Debug.LogError("A map should be created first.");
+            return;
+        }
+
+        Level level = ScriptableObject.CreateInstance<Level>();
+        //level.Map = mapCustom;
+        level.Map = editedTiles;
+        level.MapSize = currentMapSize;
+
+        string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
+        AssetDatabase.CreateAsset(level, localPath);
+        EditorUtility.FocusProjectWindow();
+    }
+
+    [ButtonGroup("SameBtnGroup")]
+    public void DeleteLevel()
+    {
+
+    }
+
     private Color GetColorBlock(int x, int y)
-	{
+    {
         BlockType clickBlock = BlockType.Empty;
-        
-        if(editedTiles != null) clickBlock = editedTiles[x, y]; 
+
+        if (editedTiles != null) clickBlock = editedTiles[x, y];
 
         Color curblockColor = NumberColors[0];
         switch (clickBlock)
-		{
+        {
             case BlockType.Empty:
                 curblockColor = NumberColors[0];
                 break;
@@ -339,46 +456,58 @@ public class MapEditor: MonoBehaviour
 
         curblockColor.a = 255;
         return curblockColor;
-	}
-
-    #endregion
-
-    #region Edit Map
-    [TabGroup("Map Editor", "Edit An Existing Map")]
-    [ShowInInspector]
-    [AssetsOnly]
-    [InlineEditor(InlineEditorModes.GUIOnly)]
-    private Level levelToEdit;
-
-    [TabGroup("Map Editor", "Edit An Existing Map")]
-    [Button]
-    public void ReloadLevel()
-    {
-
     }
 
-    #endregion
-
-    [ButtonGroup("SameBtnGroup")]
-    public void SaveLevel()
+    private Vector2 FindBlockPosition(BlockType blockToFind)
     {
-        if (levelContainer == null)
+        Vector2 blockPos = -Vector2.one;
+        if (editedTiles != null)
         {
-            Debug.LogError("A map should be created first.");
-            return;
+            for (int x = 0; x < currentMapSize; x++)
+            {
+                for (int y = 0; y < currentMapSize; y++)
+                {
+                    if (editedTiles[x, y] == blockToFind)
+                    {
+                        blockPos = new Vector2(x, y);
+                        break;
+                    }
+                }
+            }
         }
-
-        Level level = ScriptableObject.CreateInstance<Level>();
-        //level.Map = mapCustom;
-
-        string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
-        AssetDatabase.CreateAsset(level, localPath);
-        EditorUtility.FocusProjectWindow();
+        return blockPos;
     }
 
-    [ButtonGroup("SameBtnGroup")]
-    public void DeleteLevel()
+    private Vector2 FindSurroundedBlock()
     {
+        Vector2 blockPos = -Vector2.one;
+        if (winPos != Vector2.one * -1)
+        {
+            int winPosX = (int)winPos.x;
+            int winPosY = (int)winPos.y;
 
+            if (winPosX < currentMapSize && (editedTiles[winPosX + 1, winPosY] == BlockType.Edible ||
+                editedTiles[winPosX + 1, winPosY] == BlockType.Inedible))
+            {
+                blockPos.x = winPosX + 1; blockPos.y = winPosY;
+            }
+            else if (winPosX > 0 && (editedTiles[winPosX - 1, winPosY] == BlockType.Edible ||
+                editedTiles[winPosX - 1, winPosY] == BlockType.Inedible))
+            {
+                blockPos.x = winPosX - 1; blockPos.y = winPosY;
+            }
+            else if (winPosY < currentMapSize && (editedTiles[winPosX, winPosY + 1] == BlockType.Edible ||
+                editedTiles[winPosX, winPosY + 1] == BlockType.Inedible))
+            {
+                blockPos.x = winPosX; blockPos.y = winPosY + 1;
+            }
+            else if (winPosY > 0 && (editedTiles[winPosX, winPosY - 1] == BlockType.Edible ||
+                editedTiles[winPosX, winPosY - 1] == BlockType.Inedible))
+            {
+                blockPos.x = winPosX; blockPos.y = winPosY - 1;
+            }
+        }
+        return blockPos;
     }
+    #endregion
 }

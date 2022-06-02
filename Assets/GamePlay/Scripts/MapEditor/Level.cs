@@ -9,7 +9,9 @@ public class Level : ScriptableObject
 
     //public Array2DBlock Map { get => map; set => map = value; }
 
+    private int mapSize;
     private BlockType[,] map;
 
     public BlockType[,] Map { get => map; set => map = value; }
+    public int MapSize { get => mapSize; set => mapSize = value; }
 }
