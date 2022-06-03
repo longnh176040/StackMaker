@@ -148,23 +148,6 @@ public class MapEditor: MonoBehaviour
         //TODO: Check xem đầy đủ vị trí bắt đầu / kết thúc của map chưa => Nếu chưa thì báo lỗi
         levelContainer = new GameObject("Level " + levelNumer.ToString());
 
-        //var cells = mapCustom.GetCells();
-
-        //for (int y = 0; y < mapCustom.GridSize.y; y++)
-        //{
-        //    for (int x = 0; x < mapCustom.GridSize.x; x++)
-        //    {
-        //        if (cells[y, x] == BlockType.Empty)
-        //        {
-        //            continue;
-        //        }
-        //        else
-        //        {
-        //            CreateBlock(cells[y, x], new Vector3(y, 0, x), levelContainer.transform);
-        //        }
-        //    }
-        //}
-
         for (int x = 0; x < currentMapSize; x++)
         {
             for (int y = 0; y < currentMapSize; y++)
@@ -369,11 +352,19 @@ public class MapEditor: MonoBehaviour
     #endregion
 
     #region Edit Map
+    private bool isEditingMap = false;
+
     [TabGroup("Map Editor", "Edit An Existing Map")]
     [ShowInInspector]
     [AssetsOnly]
     [InlineEditor(InlineEditorModes.GUIOnly)] [InlineButton("StartEditMap")]
     private Level levelToEdit;
+
+    [Header("Map Custom")] [ShowIf("isEditingMap")]
+    [TabGroup("Map Editor", "Edit An Existing Map")]
+    [CustomValueDrawer("CustomEditMapSizeRange")]
+    public int EditMapSize;
+
 
     [TabGroup("Map Editor", "Edit An Existing Map")]
     [Button]
@@ -386,15 +377,39 @@ public class MapEditor: MonoBehaviour
     {
         if (levelToEdit == null)
         {
+            isEditingMap = false;
             Debug.LogError("Choose a level to edit !!!");
             return;
         }
         else
         {
-            editedTiles = levelToEdit.Map;
+            levelToEdit.DebugMap();
+            EditMapSize = levelToEdit.MapSize;
+            //CopyMap(levelToEdit.Map, editedTiles, EditMapSize);
+
             startPos = FindBlockPosition(BlockType.Start);
             winPos = FindBlockPosition(BlockType.Win);
+
+            isEditingMap = true;
         }
+    }
+
+    private float CustomEditMapSizeRange(int value, GUIContent label)
+    {
+        var size = EditorGUILayout.IntSlider(label, value, mapSizeMin, mapSizeMax);
+
+        if (currentMapSize != size)
+        {
+            InitMap(size);
+            currentMapSize = size;
+            ShowMapEditor();
+        }
+        else
+        {
+            ShowMapEditor();
+        }
+        
+        return size;
     }
 
     #endregion
@@ -410,9 +425,8 @@ public class MapEditor: MonoBehaviour
         }
 
         Level level = ScriptableObject.CreateInstance<Level>();
-        //level.Map = mapCustom;
-        level.Map = editedTiles;
         level.MapSize = currentMapSize;
+        level.SaveMap(editedTiles);
 
         string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
         AssetDatabase.CreateAsset(level, localPath);
@@ -422,7 +436,14 @@ public class MapEditor: MonoBehaviour
     [ButtonGroup("SameBtnGroup")]
     public void DeleteLevel()
     {
+        //if (levelContainer == null)
+        //{
+        //    Debug.LogError("A map should be created first.");
+        //    return;
+        //}
 
+        //string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
+        //AssetDatabase.DeleteAsset(localPath);
     }
 
     private Color GetColorBlock(int x, int y)
@@ -508,6 +529,36 @@ public class MapEditor: MonoBehaviour
             }
         }
         return blockPos;
+    }
+
+    //private void CopyMap(BlockType[,] source, BlockType[,] target, int size)
+    //{
+    //    target = new BlockType[size, size];
+    //    for (int i = 0; i < size; i++)
+    //    {
+    //        for (int j = 0; j < size; j++)
+    //        {
+    //            target[i, j] = source[i, j];
+    //        }
+    //    }
+    //}
+
+    private Array2DBlock ConvertEnumToArray2DBlock(BlockType[,] enumToConvert)
+    {
+        Array2DBlock array2DBlock = new Array2DBlock();
+
+        Vector2Int sizeMap = new Vector2Int(enumToConvert.GetLength(0), enumToConvert.GetLength(1));
+        array2DBlock.GridSize = sizeMap;
+
+        for (int i = 0; i< array2DBlock.GridSize.x; i++)
+        {
+            for (int j = 0; j < array2DBlock.GridSize.y; j++)
+            {
+                array2DBlock.SetCell(i, j, enumToConvert[i, j]);
+            }
+        }        
+
+        return array2DBlock;
     }
     #endregion
 }

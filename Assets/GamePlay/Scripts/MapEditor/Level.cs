@@ -10,8 +10,40 @@ public class Level : ScriptableObject
     //public Array2DBlock Map { get => map; set => map = value; }
 
     private int mapSize;
-    private BlockType[,] map;
+    [SerializeField]
+    public BlockType[,] map;
 
-    public BlockType[,] Map { get => map; set => map = value; }
+    public BlockType[,] Map { get => map;}
     public int MapSize { get => mapSize; set => mapSize = value; }
+
+    public void SaveMap(BlockType[,] sourceMap)
+    {
+        map = new BlockType[mapSize, mapSize];
+        for (int x = 0; x < mapSize; x++)
+        {
+            for (int y = 0; y < mapSize; y++)
+            {
+                map[x, y] = sourceMap[x, y];
+            }
+        }
+    }
+
+    public void DebugMap()
+    {
+        Debug.Log("Map Size: " + mapSize);
+        if (map != null)
+        {
+            for (int x = 0; x < mapSize; x++)
+            {
+                for (int y = 0; y < mapSize; y++)
+                {
+                    Debug.Log("x: " + x + " y: " + y + " type: " + map[x, y]);
+                }
+            }
+        }
+        else
+        {
+            Debug.Log("Map is null");
+        }
+    }
 }
