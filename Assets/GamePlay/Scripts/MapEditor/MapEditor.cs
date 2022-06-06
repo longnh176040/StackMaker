@@ -146,6 +146,10 @@ public class MapEditor: MonoBehaviour
         }
 
         //TODO: Check xem đầy đủ vị trí bắt đầu / kết thúc của map chưa => Nếu chưa thì báo lỗi
+        if (levelContainer != null)
+        {
+            DestroyImmediate(levelContainer);
+        }
         levelContainer = new GameObject("Level " + levelNumer.ToString());
 
         for (int x = 0; x < currentMapSize; x++)
@@ -217,7 +221,7 @@ public class MapEditor: MonoBehaviour
             }
         }
     }
-    
+
     private void InitMap(int value)
 	{
         editedTiles = new BlockType[value, value];
@@ -365,12 +369,32 @@ public class MapEditor: MonoBehaviour
     [CustomValueDrawer("CustomEditMapSizeRange")]
     public int EditMapSize;
 
+    private int winPosDir;
 
     [TabGroup("Map Editor", "Edit An Existing Map")]
     [Button]
     public void ReloadLevel()
     {
+        if (levelContainer != null)
+        {
+            DestroyImmediate(levelContainer);
+        }
+        levelContainer = new GameObject(levelToEdit.name);
 
+        for (int x = 0; x < currentMapSize; x++)
+        {
+            for (int y = 0; y < currentMapSize; y++)
+            {
+                if (editedTiles[x, y] == BlockType.Empty)
+                {
+                    continue;
+                }
+                else
+                {
+                    LoadBlock(editedTiles[x, y], new Vector3(x, 0, y), levelContainer.transform);
+                }
+            }
+        }
     }
 
     private void StartEditMap()
@@ -383,10 +407,14 @@ public class MapEditor: MonoBehaviour
         }
         else
         {
-            levelToEdit.DebugMap();
+            //levelToEdit.DebugMap();
+            //Debug.Log(levelToEdit.MapSize);
             EditMapSize = levelToEdit.MapSize;
-            //CopyMap(levelToEdit.Map, editedTiles, EditMapSize);
+            currentMapSize = EditMapSize;
+            winPosDir = levelToEdit.WinPosDirection;
 
+            //CopyMap(levelToEdit.Map, editedTiles, EditMapSize);
+            editedTiles = ConvertArray2DBlockToEnumArray(levelToEdit.MapEnumBlock);
             startPos = FindBlockPosition(BlockType.Start);
             winPos = FindBlockPosition(BlockType.Win);
 
@@ -396,20 +424,46 @@ public class MapEditor: MonoBehaviour
 
     private float CustomEditMapSizeRange(int value, GUIContent label)
     {
-        var size = EditorGUILayout.IntSlider(label, value, mapSizeMin, mapSizeMax);
+        int size = EditorGUILayout.IntSlider(label, value, mapSizeMin, mapSizeMax);
 
-        if (currentMapSize != size)
+        if (isEditingMap)
         {
-            InitMap(size);
-            currentMapSize = size;
-            ShowMapEditor();
-        }
-        else
-        {
-            ShowMapEditor();
+            if (currentMapSize != size)
+            {
+                InitMap(size);
+                currentMapSize = size;
+                ShowMapEditor();
+            }
+            else
+            {
+                ShowMapEditor();
+            }
         }
         
         return size;
+    }
+
+    private void LoadBlock(BlockType type, Vector3 position, Transform parent)
+    {
+        switch (type)
+        {
+            case BlockType.Wall:
+                Instantiate(WallPrefabs, position, Quaternion.identity, parent);
+                break;
+            case BlockType.Edible:
+                Instantiate(EdibleBlockPrefabs, position, Quaternion.identity, parent);
+                break;
+            case BlockType.Inedible:
+                Instantiate(InedibleBlockPrefabs, position, Quaternion.identity, parent);
+                break;
+            case BlockType.Start:
+                Instantiate(StartPointPrefabs, position, Quaternion.identity, parent);
+                break;
+            case BlockType.Win:
+                GameObject winBlock = Instantiate(WinPointPrefabs, position, Quaternion.identity, parent);
+                winBlock.transform.Rotate(Vector3.up * winPosDir);
+                break;
+        }
     }
 
     #endregion
@@ -426,24 +480,33 @@ public class MapEditor: MonoBehaviour
 
         Level level = ScriptableObject.CreateInstance<Level>();
         level.MapSize = currentMapSize;
-        level.SaveMap(editedTiles);
+        
+        Array2DBlock ar2B = ConvertEnumToArray2DBlock(editedTiles);
+        //var cells = ar2B.GetCells();
+        //for(int i = 0; i < cells.GetLength(0); i++)
+        //{
+        //    for (int j = 0; j < cells.GetLength(1); j++)
+        //    {
+        //        Debug.Log(i + " " + j + " " + cells[i, j] + " " + editedTiles[i, j]);
+        //    }
+        //}
+        level.MapEnumBlock = ar2B;
 
         string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
         AssetDatabase.CreateAsset(level, localPath);
-        EditorUtility.FocusProjectWindow();
     }
 
     [ButtonGroup("SameBtnGroup")]
     public void DeleteLevel()
     {
-        //if (levelContainer == null)
-        //{
-        //    Debug.LogError("A map should be created first.");
-        //    return;
-        //}
+        if (levelContainer == null)
+        {
+            Debug.LogError("A map should be created first.");
+            return;
+        }
 
-        //string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
-        //AssetDatabase.DeleteAsset(localPath);
+        string localPath = "Assets/Resources/Levels/" + levelContainer.name + ".asset";
+        AssetDatabase.DeleteAsset(localPath);
     }
 
     private Color GetColorBlock(int x, int y)
@@ -545,20 +608,39 @@ public class MapEditor: MonoBehaviour
 
     private Array2DBlock ConvertEnumToArray2DBlock(BlockType[,] enumToConvert)
     {
-        Array2DBlock array2DBlock = new Array2DBlock();
+        Array2DBlock array2DBlock = new Array2DBlock(enumToConvert.GetLength(0));
 
         Vector2Int sizeMap = new Vector2Int(enumToConvert.GetLength(0), enumToConvert.GetLength(1));
         array2DBlock.GridSize = sizeMap;
 
-        for (int i = 0; i< array2DBlock.GridSize.x; i++)
+        for (int i = 0; i< enumToConvert.GetLength(0); i++)
         {
-            for (int j = 0; j < array2DBlock.GridSize.y; j++)
+            for (int j = 0; j < enumToConvert.GetLength(1); j++)
             {
                 array2DBlock.SetCell(i, j, enumToConvert[i, j]);
             }
         }        
 
         return array2DBlock;
+    }
+
+    private BlockType[,] ConvertArray2DBlockToEnumArray(Array2DBlock arrayToConvert)
+    {
+        var cells = arrayToConvert.GetCells();
+        int cellSizeX = cells.GetLength(0);
+        int cellSizeY = cells.GetLength(1);
+
+        BlockType[,] enumArray = new BlockType[cellSizeX, cellSizeY];
+
+        for (int i = 0; i < enumArray.GetLength(0); i++)
+        {
+            for (int j = 0; j < enumArray.GetLength(1); j++)
+            {
+                enumArray[i, j] = cells[j, i];
+            }
+        }
+
+        return enumArray;
     }
     #endregion
 }

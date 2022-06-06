@@ -243,9 +243,9 @@ MonoBehaviour:
     type: 3}
   WinPointPrefabs: {fileID: 583154261668171602, guid: 44d9c5dfcceb1844893b2064176277af,
     type: 3}
-  levelNumer: 2
-  CustomMapSize: 13
-  EditMapSize: 14
+  levelNumer: 10
+  CustomMapSize: 20
+  EditMapSize: 15
 --- !u!4 &404145224
 Transform:
   m_ObjectHideFlags: 0
